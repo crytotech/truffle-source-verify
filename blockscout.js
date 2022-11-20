@@ -11,12 +11,16 @@ const API_URLS = {
   1: "https://blockscout.com/eth/mainnet/api",
   77: "https://blockscout.com/poa/sokol/api",
   100: "https://blockscout.com/poa/xdai/api",
+  424: "http://46.102.129.40:4000/api",
+  1424: "http://46.102.129.72:4000/api",
 };
 
 const EXPLORER_URLS = {
   1: "https://blockscout.com/poa/sokol/address",
   77: "https://blockscout.com/poa/sokol/address",
   100: "https://blockscout.com/poa/xdai/address",
+  424: "http://46.102.129.40:4000/address",
+  1424: "http://46.102.129.72:4000/address",
 };
 
 const VerificationStatus = {
