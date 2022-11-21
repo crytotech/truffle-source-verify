@@ -81,11 +81,19 @@ const parseConfig = (config) => {
   const workingDir = config.working_directory
   const contractsBuildDir = config.contracts_build_directory
 
+  let forceConstructorArgsType, forceConstructorArgs;
+  if (config.forceConstructorArgs) {
+    [forceConstructorArgsType, forceConstructorArgs] = String(config.forceConstructorArgs).split(':');
+    enforce(forceConstructorArgsType === 'string', 'Force constructor args must be string type', logger);
+    logger.debug(`Force custructor args provided: 0x${forceConstructorArgs}`);
+  }
+
   return {
     apiUrl,
     apiKey,
     networkId,
     workingDir,
+    forceConstructorArgs,
     contractsBuildDir
   }
 }

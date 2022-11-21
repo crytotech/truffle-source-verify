@@ -1,17 +1,17 @@
 const path = require('path')
 
 const abort = (message, logger = console, code = 1) => {
-  logger.error(message)
-  process.exit(code)
-}
+  logger.error(message);
+  process.exit(code);
+};
 
 const enforce = (condition, message, logger, code) => {
-  if (!condition) abort(message, logger, code)
-}
+  if (!condition) abort(message, logger, code);
+};
 
 const enforceOrThrow = (condition, message) => {
-  if (!condition) throw new Error(message)
-}
+  if (!condition) throw new Error(message);
+};
 
 /**
  * The metadata in the Truffle artifact file changes source paths on Windows. Instead of

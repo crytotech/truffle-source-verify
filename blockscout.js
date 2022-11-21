@@ -1,4 +1,5 @@
 const axios = require("axios");
+const http = require('http');
 const cliLogger = require("cli-logger");
 const delay = require("delay");
 const fs = require("fs");
@@ -21,6 +22,11 @@ const EXPLORER_URLS = {
   100: "https://blockscout.com/poa/xdai/address",
   424: "http://46.102.129.40:4000/address",
   1424: "http://46.102.129.72:4000/address",
+};
+
+const RequestStatus = {
+  OK: '1',
+  KO: '0'
 };
 
 const VerificationStatus = {
@@ -167,22 +173,59 @@ const verifyContract = async (artifact, options) => {
   return verificationStatus(contractAddress, options);
 };
 
+const fetchConstructorValues = async (artifact, options) => {
+  const contractAddress = artifact.networks[`${options.networkId}`].address;
+  let res
+  try {
+    res = await axios.get(      `${options.apiUrl}?module=account&action=txlist&address=${contractAddress}&page=1&sort=asc&offset=1`);
+  } catch (e) {
+    throw new Error(`Failed Fetching constructor values from Blockscout API at url ${options.apiUrl}`);
+  }
+  enforceOrThrow(res.data && res.data.status === RequestStatus.OK, 'Failed to fetch constructor arguments');
+  let constructorParameters= res.data.result[0].input.substring(artifact.bytecode.length);
+  //console.log("Const byte code is : " + constructorParameters);
+  return constructorParameters;
+};
+
+const fetchPostQueries =  async (artifact, options) => {
+  const compilerVersion = extractCompilerVersion(artifact);
+  const mergedSource = await fetchMergedSource(artifact, options);
+  const encodedConstructorArgs = await fetchConstructorValues(artifact, options);
+  if (encodedConstructorArgs) {
+    console.log("encodedConstructorArgs : " + encodedConstructorArgs);
+    return {
+      module: "contract",
+      action: "verify",
+      addressHash: artifact.networks[`${options.networkId}`].address,
+      contractSourceCode: mergedSource,
+      name: artifact.contractName,
+      compilerVersion,
+      optimization: options.optimizationUsed,
+      optimizationRuns: options.runs,
+      autodetectConstructorArguments: false,
+      constructorArguments: encodedConstructorArgs,
+      evmVersion: options.evmVersion || "default",
+  };
+  } else {
+    return {
+      module: "contract",
+      action: "verify",
+      addressHash: artifact.networks[`${options.networkId}`].address,
+      contractSourceCode: mergedSource,
+      name: artifact.contractName,
+      compilerVersion,
+      optimization: options.optimizationUsed,
+      optimizationRuns: options.runs,
+      autodetectConstructorArguments: true,
+      evmVersion: options.evmVersion || "default",
+    };
+  }
+};
+
 const sendVerifyRequest = async (artifact, options) => {
   const compilerVersion = extractCompilerVersion(artifact);
   const mergedSource = await fetchMergedSource(artifact, options);
-
-  const postQueries = {
-    module: "contract",
-    action: "verify",
-    addressHash: artifact.networks[`${options.networkId}`].address,
-    contractSourceCode: mergedSource,
-    name: artifact.contractName,
-    compilerVersion,
-    optimization: options.optimizationUsed,
-    optimizationRuns: options.runs,
-    autodetectConstructorArguments: true,
-    evmVersion: options.evmVersion || "default",
-  };
+  const postQueries = await fetchPostQueries (artifact, options);
 
   // Link libraries as specified in the artifact
   const libraries = artifact.networks[`${options.networkId}`].links || {};
@@ -199,7 +242,12 @@ const sendVerifyRequest = async (artifact, options) => {
   try {
     logger.debug("Sending verify request with POST arguments:");
     logger.debug(JSON.stringify(postQueries, null, 2));
-    return axios.post(`${options.apiUrl}`, querystring.stringify(postQueries));
+    const axiosInstance = axios.create({
+      timeout: 1000000,
+      headers: {'X-Custom-Header': 'foobar'},
+      httpAgent: new http.Agent({ keepAlive: true }),
+    });
+    return axiosInstance.post(`${options.apiUrl}`, querystring.stringify(postQueries));
   } catch (error) {
     logger.debug(error.message);
     throw new Error(
